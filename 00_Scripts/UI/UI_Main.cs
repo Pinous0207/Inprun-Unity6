@@ -17,7 +17,7 @@ public class UI_Main : MonoBehaviour
 
     private void Update()
     {
-        MonsterCount_T.text = Game_Mng.instance.monsters.Count.ToString() + " / 100";
+        MonsterCount_T.text = Game_Mng.instance.MonsterCount.ToString() + " / 100";
         Money_T.text = Game_Mng.instance.Money.ToString();
         Summon_T.text = Game_Mng.instance.SummonCount.ToString();
 

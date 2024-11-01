@@ -1,11 +1,12 @@
 using System.Collections;
+using Unity.Netcode;
 using UnityEngine;
 
 public class Hero : Character
 {
     public float attackRange = 1.0f;
     public float attackSpeed = 1.0f;
-    public Monster target;
+    public NetworkObject target;
     public LayerMask enemyLayer;
 
     private void Update()
@@ -19,11 +20,12 @@ public class Hero : Character
         attackSpeed += Time.deltaTime;
         if(enemiesInRange.Length > 0)
         {
-            target = enemiesInRange[0].GetComponent<Monster>();
+            target = enemiesInRange[0].GetComponent<NetworkObject>();
             if(attackSpeed >= 1.0f)
             {
                 attackSpeed = 0.0f;
-                AttackEnemy(target);
+                AnimatorChange("ATTACK", true);
+                AttackMonsterServerRpc(target.NetworkObjectId);
             }
         }
         else
@@ -32,10 +34,17 @@ public class Hero : Character
         }
     }
 
-    void AttackEnemy(Monster enemy)
+    [ServerRpc(RequireOwnership = false)]
+    private void AttackMonsterServerRpc(ulong monsterId)
     {
-        AnimatorChange("ATTACK", true);
-        enemy.GetDamage(10);
+        if(NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(monsterId, out var spawnedObject))
+        {
+            Monster monster = spawnedObject.GetComponent<Monster>();
+            if(monster != null)
+            {
+                monster.GetDamage(10);
+            }
+        }
     }
 
     private void OnDrawGizmosSelected()
