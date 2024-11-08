@@ -9,17 +9,21 @@ using Unity.Netcode;
 using UnityEditor.PackageManager;
 public class Spawner : NetworkBehaviour
 {
-    [SerializeField] private GameObject _spawn_Prefab;
+    [SerializeField] private GameObject _spawn_Holder;
     [SerializeField] private Monster _spawn_Monster_Prefab;
 
     public List<Vector2> Player_move_List = new List<Vector2>();
     public List<Vector2> Other_move_List = new List<Vector2>();
 
-    List<Vector2> Player_spawn_list = new List<Vector2>();
-    List<Vector2> Other_spawn_list = new List<Vector2>();
+    public static List<Vector2> Player_spawn_list = new List<Vector2>();
+    public static List<Vector2> Other_spawn_list = new List<Vector2>();
 
     List<bool> Player_spawn_list_Array= new List<bool>();
     List<bool> Other_spawn_list_Array = new List<bool>();
+
+    Dictionary<string, Hero_Holder> Hero_Holders = new Dictionary<string, Hero_Holder>();
+
+    public static float xValue, yValue;
 
     private void Start()
     {
@@ -41,7 +45,7 @@ public class Spawner : NetworkBehaviour
             Other_move_List.Add(transform.GetChild(1).GetChild(i).position);
         }
     }
-
+ 
     #region Make Grid
     private void Grid_Start(Transform tt, bool Player)
     {
@@ -52,6 +56,10 @@ public class Spawner : NetworkBehaviour
 
         float xCount = tt.localScale.x / 6;
         float yCount = tt.localScale.y / 3;
+
+        xValue = xCount;
+        yValue = yCount;
+
         for (int row = 0; row < 3; row++) // 상하 = 3개
         {
             for (int col = 0; col < 6; col++) // 좌우 = 6개
@@ -84,7 +92,7 @@ public class Spawner : NetworkBehaviour
 
         //Game_Mng.instance.Money -= Game_Mng.instance.SummonCount;
         //Game_Mng.instance.SummonCount += 2;
-
+        Debug.Log(IsServer ? "서버입니다." : "클라이언트입니다.");
         if(IsClient)
         {
             ServerSpawnHeroServerRpc(LocalID());
@@ -93,8 +101,6 @@ public class Spawner : NetworkBehaviour
         {
             HeroSpawn(LocalID());
         }
-
-        
     }
 
     [ServerRpc(RequireOwnership =false)]
@@ -105,15 +111,37 @@ public class Spawner : NetworkBehaviour
 
     private void HeroSpawn(ulong clientId)
     {
-        var go = Instantiate(_spawn_Prefab);
-        NetworkObject networkObject = go.GetComponent<NetworkObject>();
-        networkObject.Spawn();
+        Hero_Scriptable[] m_Character_Datas = Resources.LoadAll<Hero_Scriptable>("Character_Scriptable");
+        var data = m_Character_Datas[UnityEngine.Random.Range(0, m_Character_Datas.Length)];
+       
+        bool GetHero = false;
+        string temp = clientId == 0 ? "HOST" : "CLIENT";
+        foreach (var dd in Hero_Holders)
+        {
+            if (dd.Key.Contains(temp))
+            {
+                if (dd.Value.m_Heroes.Count < 3 && dd.Value.Holder_Name == data.Name)
+                {
+                    dd.Value.SpawnCharacter(data.GetHeroData());
+                    GetHero = true;
+                    break;
+                }
+            }
+        }
+        if (GetHero == false)
+        {
+            var go = Instantiate(_spawn_Holder);
+            NetworkObject networkObject = go.GetComponent<NetworkObject>();
+            networkObject.Spawn();
 
-        ClientSpawnHeroClientRpc(networkObject.NetworkObjectId, clientId);
+            Hero_Holders.Add(temp + Hero_Holders.Count.ToString(), go.GetComponent<Hero_Holder>());
+
+            ClientSpawnHeroClientRpc(networkObject.NetworkObjectId, clientId, data.GetHeroData());
+        }
     }
 
     [ClientRpc]
-    private void ClientSpawnHeroClientRpc(ulong networkID, ulong clientId)
+    private void ClientSpawnHeroClientRpc(ulong networkID, ulong clientId, HeroData data)
     {
         if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(networkID, out NetworkObject heroNetworkObject))
         {
@@ -125,6 +153,7 @@ public class Spawner : NetworkBehaviour
             {
                 SetPositionHero(heroNetworkObject, false);
             }
+            heroNetworkObject.GetComponent<Hero_Holder>().SpawnCharacter(data);
         }
     }
 
@@ -143,6 +172,8 @@ public class Spawner : NetworkBehaviour
             }
         }
         obj.transform.position = spawnList[position_value];
+        obj.GetComponent<Hero_Holder>().pos = spawnList[position_value];
+        Debug.Log(spawnList[position_value] + " : " + obj.transform.position);
     }
 
     #endregion
