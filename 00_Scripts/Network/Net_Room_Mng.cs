@@ -6,6 +6,7 @@ using Unity.Services.Lobbies.Models;
 using Unity.Services.Lobbies;
 using Unity.Services.Relay;
 using UnityEngine;
+using Unity.VisualScripting;
 
 public partial class Net_Mng : MonoBehaviour
 {
@@ -46,6 +47,7 @@ public partial class Net_Mng : MonoBehaviour
             return;
         }
 
+        Matching_Object.SetActive(true);
         currentLobby = await FindAvailableLooby();
 
         if (currentLobby == null)
@@ -57,6 +59,7 @@ public partial class Net_Mng : MonoBehaviour
             await JoinLobby(currentLobby.Id);
         }
     }
+
 
     private async Task<Lobby> FindAvailableLooby()
     {
@@ -76,6 +79,27 @@ public partial class Net_Mng : MonoBehaviour
         return null;
     }
 
+    private async void DestroyLobby(string lobbyId)
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(lobbyId))
+            {
+                await LobbyService.Instance.DeleteLobbyAsync(lobbyId);
+                Debug.Log("Lobby destroyed : " + lobbyId);
+            }
+            if(NetworkManager.Singleton.IsHost)
+            {
+                NetworkManager.Singleton.Shutdown();
+                Matching_Object.SetActive(false);
+            }
+        }
+        catch(System.Exception e)
+        {
+            Debug.LogError("Failed to destroy lobby : " + e.Message);
+        }
+    }
+
     private async Task CreateNewLobby()
     {
         try
@@ -83,6 +107,7 @@ public partial class Net_Mng : MonoBehaviour
             currentLobby = await LobbyService.Instance.CreateLobbyAsync("랜덤매칭방", maxPlayers);
             Debug.Log("새로운 방 생성됨:" + currentLobby.Id);
             await AllocateRelayServerAndJoin(currentLobby);
+            CancelButton.onClick.AddListener(() => DestroyLobby(currentLobby.Id));
             StartHost();
         }
         catch (LobbyServiceException e)
@@ -111,7 +136,7 @@ public partial class Net_Mng : MonoBehaviour
         {
             var allocation = await RelayService.Instance.CreateAllocationAsync(lobby.MaxPlayers);
             var joinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
-            JoinCodeText.text = joinCode;
+            //JoinCodeText.text = joinCode;
             Debug.Log("Relay 서버 할당 완료. Join Code : " + joinCode);
         }
         catch (RelayServiceException e)

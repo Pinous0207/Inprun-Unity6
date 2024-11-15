@@ -12,10 +12,9 @@ public partial class Net_Mng : MonoBehaviour
 
     private const int maxPlayers = 2;
     private string gameplaySceneName = "GamePlayScene";
-    public Button StartMatchButton, JoinMatchButton;
-    public InputField fieldText;
-    public Text JoinCodeText;
-
+    public Button StartMatchButton;
+    public GameObject Matching_Object;
+    public Button CancelButton;
     private async void Start() // 비동기 -> 동시에 일어나지 않는다.
     {
         await UnityServices.InitializeAsync();
@@ -25,6 +24,6 @@ public partial class Net_Mng : MonoBehaviour
         }
 
         StartMatchButton.onClick.AddListener(() => StartMatchmaking());
-        JoinMatchButton.onClick.AddListener(() => JoinGameWithCode(fieldText.text));
+        //JoinMatchButton.onClick.AddListener(() => JoinGameWithCode(fieldText.text));
     }
 }

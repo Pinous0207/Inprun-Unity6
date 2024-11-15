@@ -3,6 +3,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UIElements;
+using System.Collections.Generic;
 
 public class Hero : Character
 {
@@ -13,6 +14,7 @@ public class Hero : Character
     public NetworkObject target;
     public LayerMask enemyLayer;
     public Hero_Scriptable m_Data;
+    bool isMove = false;
 
     public void Initalize(HeroData obj, Hero_Holder holder)
     {
@@ -23,8 +25,47 @@ public class Hero : Character
         GetInitCharacter(obj.heroName);
     }
 
+    public void Position_Change(Hero_Holder holder, List<Vector2> poss, int myIndex)
+    {
+        isMove = true;
+        AnimatorChange("MOVE", false);
+
+        parent_holder = holder;
+        
+        if(IsServer)
+            transform.parent = holder.transform;
+
+        int sign = (int)Mathf.Sign(poss[myIndex].x - transform.position.x);
+        switch(sign)
+        {
+            case -1: renderer.flipX = true; break;
+            case 1: renderer.flipX = false; break;
+        }
+        StartCoroutine(Move_Coroutine(poss[myIndex]));
+    }
+
+    private IEnumerator Move_Coroutine(Vector2 endPos)
+    {
+        float current = 0.0f;
+        float percent = 0.0f;
+        Vector2 start = transform.position;
+        Vector2 end = endPos;
+        while(percent < 1.0f)
+        {
+            current += Time.deltaTime;
+            percent = current / 0.5f;
+            Vector2 LerpPos = Vector2.Lerp(start, end, percent);
+            transform.position = LerpPos;
+            yield return null;
+        }
+        isMove = false;
+        AnimatorChange("IDLE", false);
+        renderer.flipX = true;
+    }
+
     private void Update()
     {
+        if (isMove) return;
         CheckForEnemies();
     }
 

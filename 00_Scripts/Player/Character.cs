@@ -27,8 +27,11 @@ public class Character : NetworkBehaviour
         if (Trigger)
         {
             animator.SetTrigger(temp);
+            return;
         }
-        else animator.SetBool(temp, true);
+        animator.SetBool("IDLE", false);
+        animator.SetBool("MOVE", false);
+        animator.SetBool(temp, true);
     }
 
     // Update is called once per frame

@@ -8,19 +8,22 @@ public class Hero_Holder : NetworkBehaviour
 {
     [SerializeField] private Hero _spawn_Hero;
     [SerializeField] Transform Circle_Range;
+    [SerializeField] Transform SetClick;
+    [SerializeField] Transform GetClick;
 
+    public string Holder_Part_Name;
     public string Holder_Name;
     public List<Hero> m_Heroes = new List<Hero>();
     public Vector2 pos;
     HeroData m_Data;
 
-    private readonly Vector2[] One = {Vector2.zero};
-    private readonly Vector2[] Two =
+    public readonly Vector2[] One = {Vector2.zero};
+    public readonly Vector2[] Two =
         {
         new Vector2(-0.1f, 0.05f),
         new Vector2(0.1f, -0.1f)
     };
-    private readonly Vector2[] Three =
+    public readonly Vector2[] Three =
         {
         new Vector2(-0.1f, 0.1f),
         new Vector2(0.1f, -0.05f),
@@ -30,6 +33,37 @@ public class Hero_Holder : NetworkBehaviour
     private void Start()
     {
         MakeCollider();
+    }
+
+    public void HeroChange(Hero_Holder holder)
+    {
+        List<Vector2> poss = new List<Vector2>();
+        switch(m_Heroes.Count)
+        {
+            case 1: poss = new List<Vector2>(One); break;
+            case 2: poss = new List<Vector2>(Two); break;
+            case 3: poss = new List<Vector2>(Three); break;
+        }
+
+        for(int i = 0; i < poss.Count; i++)
+        {
+            Vector2 worldPosition = holder.transform.TransformPoint(poss[i]);
+            poss[i] = worldPosition;
+        }
+
+        for (int i = 0; i < m_Heroes.Count; i++)
+        {
+            m_Heroes[i].Position_Change(holder, poss, i);
+        }
+    }
+
+    public void G_GetClick(bool Active)
+    {
+        GetClick.gameObject.SetActive(Active);
+    }
+    public void S_SetClick(bool Active)
+    {
+        SetClick.gameObject.SetActive(Active);
     }
 
     public void GetRange()

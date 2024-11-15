@@ -7,8 +7,20 @@ using System.Collections;
 using UnityEditor.Build.Content;
 using Unity.Netcode;
 using UnityEditor.PackageManager;
+using static UnityEngine.Rendering.DebugUI;
+using UnityEditor.Search;
 public class Spawner : NetworkBehaviour
 {
+    public static Spawner instance = null;
+
+    private void Awake()
+    {
+        if(instance == null)
+        {
+            instance = this;
+        }
+    }
+
     [SerializeField] private GameObject _spawn_Holder;
     [SerializeField] private Monster _spawn_Monster_Prefab;
 
@@ -21,9 +33,49 @@ public class Spawner : NetworkBehaviour
     List<bool> Player_spawn_list_Array= new List<bool>();
     List<bool> Other_spawn_list_Array = new List<bool>();
 
-    Dictionary<string, Hero_Holder> Hero_Holders = new Dictionary<string, Hero_Holder>();
+    public Dictionary<string, Hero_Holder> Hero_Holders = new Dictionary<string, Hero_Holder>();
+    private int[] Host_Client_Value_Index = new int[2];
 
     public static float xValue, yValue;
+
+    public void Holder_Position_Set(string Value01, string Value02)
+    {
+        if(IsServer)
+        {
+            GetPositionSet(Value01, Value02);
+        }
+        else if(IsClient)
+        {
+            GetPositionSetServerRpc(Value01, Value02);
+        }
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    private void GetPositionSetServerRpc(string Value01, string Value02)
+    {
+        GetPositionSet(Value01, Value02);
+    }
+
+    private void GetPositionSet(string Value01, string Value02)
+    {
+        GetPositionSetClientRpc(Value01, Value02);
+    }
+
+    [ClientRpc]
+    private void GetPositionSetClientRpc(string Value01, string Value02)
+    {
+        Hero_Holder holder01 = Hero_Holders[Value01];
+        Hero_Holder holder02 = Hero_Holders[Value02];
+
+        holder01.HeroChange(holder02);
+        holder02.HeroChange(holder01);
+
+        List<Hero> Heroes01 = new List<Hero>(holder01.m_Heroes);
+        List<Hero> Heroes02 = new List<Hero>(holder02.m_Heroes);
+
+        holder01.m_Heroes = new List<Hero>(Heroes02);
+        holder02.m_Heroes = new List<Hero>(Heroes01);
+    }
 
     private void Start()
     {
@@ -92,7 +144,6 @@ public class Spawner : NetworkBehaviour
 
         //Game_Mng.instance.Money -= Game_Mng.instance.SummonCount;
         //Game_Mng.instance.SummonCount += 2;
-        Debug.Log(IsServer ? "서버입니다." : "클라이언트입니다.");
         if(IsClient)
         {
             ServerSpawnHeroServerRpc(LocalID());
@@ -116,6 +167,9 @@ public class Spawner : NetworkBehaviour
        
         bool GetHero = false;
         string temp = clientId == 0 ? "HOST" : "CLIENT";
+        int value = clientId == 0 ? 0 : 1;
+        string Organizers = temp + Host_Client_Value_Index[value].ToString();
+
         foreach (var dd in Hero_Holders)
         {
             if (dd.Key.Contains(temp))
@@ -134,14 +188,13 @@ public class Spawner : NetworkBehaviour
             NetworkObject networkObject = go.GetComponent<NetworkObject>();
             networkObject.Spawn();
 
-            Hero_Holders.Add(temp + Hero_Holders.Count.ToString(), go.GetComponent<Hero_Holder>());
 
-            ClientSpawnHeroClientRpc(networkObject.NetworkObjectId, clientId, data.GetHeroData());
+            ClientSpawnHeroClientRpc(networkObject.NetworkObjectId, clientId, data.GetHeroData(), Organizers, value);
         }
     }
 
     [ClientRpc]
-    private void ClientSpawnHeroClientRpc(ulong networkID, ulong clientId, HeroData data)
+    private void ClientSpawnHeroClientRpc(ulong networkID, ulong clientId, HeroData data, string Organizers, int value)
     {
         if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(networkID, out NetworkObject heroNetworkObject))
         {
@@ -153,6 +206,13 @@ public class Spawner : NetworkBehaviour
             {
                 SetPositionHero(heroNetworkObject, false);
             }
+
+            Hero_Holder goHolder = heroNetworkObject.GetComponent<Hero_Holder>();
+
+            Hero_Holders.Add(Organizers, goHolder);
+            Host_Client_Value_Index[value]++;
+
+            goHolder.Holder_Part_Name = Organizers;
             heroNetworkObject.GetComponent<Hero_Holder>().SpawnCharacter(data);
         }
     }
@@ -172,8 +232,10 @@ public class Spawner : NetworkBehaviour
             }
         }
         obj.transform.position = spawnList[position_value];
-        obj.GetComponent<Hero_Holder>().pos = spawnList[position_value];
-        Debug.Log(spawnList[position_value] + " : " + obj.transform.position);
+        
+        Hero_Holder holder = obj.GetComponent<Hero_Holder>();
+        
+        holder.pos = spawnList[position_value];
     }
 
     #endregion
