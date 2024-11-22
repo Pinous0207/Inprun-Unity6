@@ -26,6 +26,7 @@ public class Hero_Scriptable : ScriptableObject
     public float ATK_Speed;
     public float Range;
     public RuntimeAnimatorController m_Animator;
+    public Rarity rare;
     public HeroData GetHeroData()
     {
         return new HeroData

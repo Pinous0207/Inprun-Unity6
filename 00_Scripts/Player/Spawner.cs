@@ -9,6 +9,7 @@ using Unity.Netcode;
 using UnityEditor.PackageManager;
 using static UnityEngine.Rendering.DebugUI;
 using UnityEditor.Search;
+using Unity.Android.Gradle.Manifest;
 public class Spawner : NetworkBehaviour
 {
     public static Spawner instance = null;
@@ -26,28 +27,20 @@ public class Spawner : NetworkBehaviour
 
     public List<Vector2> Player_move_List = new List<Vector2>();
     public List<Vector2> Other_move_List = new List<Vector2>();
-
     public static List<Vector2> Player_spawn_list = new List<Vector2>();
     public static List<Vector2> Other_spawn_list = new List<Vector2>();
-
-    List<bool> Player_spawn_list_Array= new List<bool>();
-    List<bool> Other_spawn_list_Array = new List<bool>();
+    public static List<bool> Player_spawn_list_Array= new List<bool>();
+    public static List<bool> Other_spawn_list_Array = new List<bool>();
 
     public Dictionary<string, Hero_Holder> Hero_Holders = new Dictionary<string, Hero_Holder>();
     private int[] Host_Client_Value_Index = new int[2];
-
     public static float xValue, yValue;
 
     public void Holder_Position_Set(string Value01, string Value02)
     {
-        if(IsServer)
-        {
-            GetPositionSet(Value01, Value02);
-        }
-        else if(IsClient)
-        {
-            GetPositionSetServerRpc(Value01, Value02);
-        }
+        Net_Utils.HostAndClientMethod(
+            () => GetPositionSetServerRpc(Value01, Value02),
+            () => GetPositionSet(Value01, Value02));
     }
 
     [ServerRpc(RequireOwnership = false)]
@@ -70,11 +63,8 @@ public class Spawner : NetworkBehaviour
         holder01.HeroChange(holder02);
         holder02.HeroChange(holder01);
 
-        List<Hero> Heroes01 = new List<Hero>(holder01.m_Heroes);
-        List<Hero> Heroes02 = new List<Hero>(holder02.m_Heroes);
-
-        holder01.m_Heroes = new List<Hero>(Heroes02);
-        holder02.m_Heroes = new List<Hero>(Heroes01);
+        (holder01.Holder_Name, holder02.Holder_Name) = (holder02.Holder_Name, holder01.Holder_Name);
+        (holder01.m_Heroes, holder02.m_Heroes) = (new List<Hero>(holder02.m_Heroes), new List<Hero>(holder01.m_Heroes));
     }
 
     private void Start()
@@ -135,7 +125,7 @@ public class Spawner : NetworkBehaviour
     #endregion
 
     #region 캐릭터 소환
-    public void Summon()
+    public void Summon(string Rarity)
     {
         //if (Game_Mng.instance.Money < Game_Mng.instance.SummonCount)
         //{
@@ -144,98 +134,85 @@ public class Spawner : NetworkBehaviour
 
         //Game_Mng.instance.Money -= Game_Mng.instance.SummonCount;
         //Game_Mng.instance.SummonCount += 2;
-        if(IsClient)
-        {
-            ServerSpawnHeroServerRpc(LocalID());
-        }
-        else if(IsServer)
-        {
-            HeroSpawn(LocalID());
-        }
+        Net_Utils.HostAndClientMethod(
+            () => ServerSpawnHeroServerRpc(Net_Utils.LocalID(), Rarity),
+            () => HeroSpawn(Net_Utils.LocalID(), Rarity));
     }
 
     [ServerRpc(RequireOwnership =false)]
-    private void ServerSpawnHeroServerRpc(ulong clientId)
+    private void ServerSpawnHeroServerRpc(ulong clientId, string rarity)
     {
-        HeroSpawn(clientId);
+        HeroSpawn(clientId, rarity);
     }
 
-    private void HeroSpawn(ulong clientId)
+    private void HeroSpawn(ulong clientId, string rarity)
     {
-        Hero_Scriptable[] m_Character_Datas = Resources.LoadAll<Hero_Scriptable>("Character_Scriptable");
+        Hero_Scriptable[] m_Character_Datas = Resources.LoadAll<Hero_Scriptable>("Character_Scriptable/" + rarity);
         var data = m_Character_Datas[UnityEngine.Random.Range(0, m_Character_Datas.Length)];
-       
+
         bool GetHero = false;
         string temp = clientId == 0 ? "HOST" : "CLIENT";
         int value = clientId == 0 ? 0 : 1;
         string Organizers = temp + Host_Client_Value_Index[value].ToString();
 
-        foreach (var dd in Hero_Holders)
+        var existingHolder = GetExistingHolder(temp, data.Name);
+        if(existingHolder != null)
         {
-            if (dd.Key.Contains(temp))
-            {
-                if (dd.Value.m_Heroes.Count < 3 && dd.Value.Holder_Name == data.Name)
-                {
-                    dd.Value.SpawnCharacter(data.GetHeroData());
-                    GetHero = true;
-                    break;
-                }
-            }
+            existingHolder.SpawnCharacter(data.GetHeroData(), rarity);
+            return;
         }
+       
         if (GetHero == false)
         {
             var go = Instantiate(_spawn_Holder);
             NetworkObject networkObject = go.GetComponent<NetworkObject>();
             networkObject.Spawn();
 
-
-            ClientSpawnHeroClientRpc(networkObject.NetworkObjectId, clientId, data.GetHeroData(), Organizers, value);
+            ClientSpawnHeroClientRpc(networkObject.NetworkObjectId, clientId, data.GetHeroData(), Organizers, value, rarity);
         }
     }
 
-    [ClientRpc]
-    private void ClientSpawnHeroClientRpc(ulong networkID, ulong clientId, HeroData data, string Organizers, int value)
+    private Hero_Holder GetExistingHolder(string clientKey, string heroName)
     {
-        if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(networkID, out NetworkObject heroNetworkObject))
+        foreach (var holder in Hero_Holders)
         {
-            if (clientId == LocalID())
+            if(holder.Key.Contains(clientKey) && holder.Value.m_Heroes.Count < 3 && holder.Value.Holder_Name == heroName)
             {
-                SetPositionHero(heroNetworkObject, true);
+                return holder.Value;
             }
-            else
-            {
-                SetPositionHero(heroNetworkObject, false);
-            }
+        }
+        return null;
+    }
+
+    [ClientRpc]
+    private void ClientSpawnHeroClientRpc(ulong networkID, ulong clientId, HeroData data, string Organizers, int value, string rarity)
+    {
+        if (Net_Utils.TryGetSpawnedObject(networkID, out NetworkObject heroNetworkObject))
+        {
+            bool isPlayer = clientId == Net_Utils.LocalID();
+            SetPositionHero(heroNetworkObject, 
+                isPlayer ? Player_spawn_list : Other_spawn_list,
+                isPlayer ? Player_spawn_list_Array : Other_spawn_list_Array);
 
             Hero_Holder goHolder = heroNetworkObject.GetComponent<Hero_Holder>();
 
             Hero_Holders.Add(Organizers, goHolder);
             Host_Client_Value_Index[value]++;
-
             goHolder.Holder_Part_Name = Organizers;
-            heroNetworkObject.GetComponent<Hero_Holder>().SpawnCharacter(data);
+            goHolder.SpawnCharacter(data, rarity);
         }
     }
 
-    private void SetPositionHero(NetworkObject obj, bool Player)
+    private void SetPositionHero(NetworkObject obj, List<Vector2> spawnList, List<bool> spawnArrayList)
     {
-        List<bool> spawnListArray = Player ? Player_spawn_list_Array : Other_spawn_list_Array;
-        List<Vector2> spawnList = Player ? Player_spawn_list : Other_spawn_list;
-        int position_value = -1;
-        for (int i = 0; i < spawnListArray.Count; i++)
+        int position_value = spawnArrayList.IndexOf(false);
+        if(position_value != -1)
         {
-            if (spawnListArray[i] == false)
-            {
-                position_value = i;
-                spawnListArray[i] = true;
-                break;
-            }
+            spawnArrayList[position_value] = true;
+            obj.transform.position = spawnList[position_value];
         }
-        obj.transform.position = spawnList[position_value];
-        
         Hero_Holder holder = obj.GetComponent<Hero_Holder>();
-        
-        holder.pos = spawnList[position_value];
+        holder.index = position_value;
     }
 
     #endregion
@@ -246,14 +223,9 @@ public class Spawner : NetworkBehaviour
     {
         yield return new WaitForSeconds(1.0f);
 
-        if (IsClient)
-        {
-            ServerMonsterSpawnServerRpc(LocalID());
-        }
-        else if(IsServer)
-        {
-            MonsterSpawn(LocalID());
-        }
+        Net_Utils.HostAndClientMethod(
+            () => ServerMonsterSpawnServerRpc(Net_Utils.LocalID()),
+            () => MonsterSpawn(Net_Utils.LocalID()));
 
         StartCoroutine(Spawn_Monster_Coroutine());
     }
@@ -277,25 +249,12 @@ public class Spawner : NetworkBehaviour
     [ClientRpc]
     private void ClientMonsterSetClientRpc(ulong networkObjectId, ulong clientId)
     {
-        if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(networkObjectId, out NetworkObject monsterNetworkObject))
+        if (Net_Utils.TryGetSpawnedObject(networkObjectId, out NetworkObject monsterNetworkObject))
         {
-            if (clientId == LocalID())
-            {
-                monsterNetworkObject.transform.position = Player_move_List[0];
-                monsterNetworkObject.GetComponent<Monster>().Init(Player_move_List);
-            }
-            else
-            {
-                monsterNetworkObject.transform.position = Other_move_List[0];
-                monsterNetworkObject.GetComponent<Monster>().Init(Other_move_List);
-            }
+            var moveList = clientId == Net_Utils.LocalID() ? Player_move_List : Other_move_List;
+            monsterNetworkObject.transform.position = moveList[0];
+            monsterNetworkObject.GetComponent<Monster>().Init(moveList);
         }
     }
-
-    private ulong LocalID()
-    {
-        return NetworkManager.Singleton.LocalClientId;
-    }
-
     #endregion
 }

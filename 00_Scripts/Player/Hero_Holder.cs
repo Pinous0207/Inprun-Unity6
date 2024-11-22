@@ -1,8 +1,10 @@
 using System.Collections.Generic;
+using Unity.Android.Gradle.Manifest;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEditor.PackageManager;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class Hero_Holder : NetworkBehaviour
 {
@@ -10,14 +12,15 @@ public class Hero_Holder : NetworkBehaviour
     [SerializeField] Transform Circle_Range;
     [SerializeField] Transform SetClick;
     [SerializeField] Transform GetClick;
+    [SerializeField] private GameObject CanvasObject;
 
     public string Holder_Part_Name;
     public string Holder_Name;
     public List<Hero> m_Heroes = new List<Hero>();
-    public Vector2 pos;
+    public int index;
     HeroData m_Data;
 
-    public readonly Vector2[] One = {Vector2.zero};
+    public readonly Vector2[] One = { Vector2.zero };
     public readonly Vector2[] Two =
         {
         new Vector2(-0.1f, 0.05f),
@@ -30,9 +33,122 @@ public class Hero_Holder : NetworkBehaviour
         new Vector2(-0.15f, -0.15f)
     };
 
+    public Button SellButton, CompositionButton;
+
     private void Start()
     {
         MakeCollider();
+
+        SellButton.onClick.AddListener(() => Sell());
+        CompositionButton.onClick.AddListener(() => Composition());
+    }
+
+    #region SELL
+    private void Sell()
+    {
+        Net_Utils.HostAndClientMethod(
+            () => SellServerRpc(Net_Utils.LocalID()),
+            () => SellCharacter(Net_Utils.LocalID()));
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    private void SellServerRpc(ulong clientID)
+    {
+        SellCharacter(clientID);
+    }
+
+    private void SellCharacter(ulong clientID)
+    {
+        var hero = m_Heroes[m_Heroes.Count - 1];
+        ulong heroId = hero.NetworkObjectId;
+        NetworkObject obj = NetworkManager.Singleton.SpawnManager.SpawnedObjects[heroId];
+        SellClientRpc(heroId, clientID);
+        obj.Despawn();
+    }
+
+    [ClientRpc]
+    private void SellClientRpc(ulong heroKey, ulong clientID)
+    {
+        var obj = NetworkManager.Singleton.SpawnManager.SpawnedObjects[heroKey];
+        m_Heroes.Remove(obj.GetComponent<Hero>());
+        if (m_Heroes.Count == 0)
+        {
+            DestroyServerRpc(clientID);
+        }
+        CheckGetPosition();
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    private void DestroyServerRpc(ulong clientID)
+    {
+        DestroyClientRpc(clientID);
+        NetworkObject holderObj = NetworkManager.Singleton.SpawnManager.SpawnedObjects[NetworkObjectId];
+        holderObj.Despawn();
+    }
+
+    [ClientRpc]
+    private void DestroyClientRpc(ulong clientID)
+    {
+        Spawner.instance.Hero_Holders.Remove(Holder_Part_Name);
+        if (Net_Utils.IsClientCheck(clientID))
+        {
+            Spawner.Player_spawn_list_Array[index] = false;
+        }
+        else
+        {
+            Spawner.Other_spawn_list_Array[index] = false;
+        }
+    }
+    #endregion
+
+    public void Composition()
+    {
+        List<Hero_Holder> holders = new List<Hero_Holder>();
+
+        holders.Add(this);
+
+        foreach(var data in Spawner.instance.Hero_Holders)
+        {
+            if(data.Value.Holder_Name == Holder_Name && data.Value != this)
+            {
+                string temp = Net_Utils.LocalID() == (ulong)0 ? "HOST" : "CLIENT";
+                
+                if(data.Value.Holder_Part_Name.Contains(temp))
+                    holders.Add(data.Value);
+            }
+        }
+        int cnt = 0;
+        string[] holderTemp = new string[2];
+        bool GetBreak = false;
+        for(int i = 0; i < holders.Count; i++)
+        {
+            for (int j = 0; j < holders[i].m_Heroes.Count; j++)
+            {
+                if (holders[i].m_Heroes.Count > 0)
+                {
+                    holderTemp[cnt] = holders[i].Holder_Part_Name;
+                    cnt++;
+                    if (cnt >= 2)
+                    {
+                        GetBreak = true;
+                        break;
+                    }
+                }
+            }
+            if (GetBreak) break;
+        }
+        for (int i = 0; i < holderTemp.Length; i++)
+        {
+            if (holderTemp[i] == "" || holderTemp[i] == null)
+            {
+                Debug.Log("합성에 필요한 영웅이 부족합니다.");
+                return;
+            }
+
+        }
+        for (int i = 0; i < holderTemp.Length; i++) Spawner.instance.Hero_Holders[holderTemp[i]].Sell();
+
+        Spawner.instance.Summon("UnCommon");
     }
 
     public void HeroChange(Hero_Holder holder)
@@ -72,10 +188,12 @@ public class Hero_Holder : NetworkBehaviour
         Circle_Range.localScale = new Vector2(range, range);
 
         Circle_Range.gameObject.SetActive(true);
+        CanvasObject.SetActive(true);
     }
     public void ReturnRange()
     {
         Circle_Range.gameObject.SetActive(false);
+        CanvasObject.SetActive(false);
         Circle_Range.localScale = Vector2.zero;
     }
 
@@ -86,17 +204,17 @@ public class Hero_Holder : NetworkBehaviour
         collider.size = new Vector2(Spawner.xValue, Spawner.yValue);
     }
 
-    public void SpawnCharacter(HeroData data)
+    public void SpawnCharacter(HeroData data, string rarity)
     {
         Holder_Name = data.heroName;
         m_Data = data;
         if (IsServer)
         {
-            HeroSpawn(LocalID(), data);
+            HeroSpawn(Net_Utils.LocalID(), data, rarity);
         }
     }
 
-    private void HeroSpawn(ulong clientId, HeroData data)
+    private void HeroSpawn(ulong clientId, HeroData data, string rarity)
     {
         var go = Instantiate(_spawn_Hero);
       
@@ -105,7 +223,7 @@ public class Hero_Holder : NetworkBehaviour
 
         go.transform.parent = this.transform;
 
-        ClientSpawnHeroClientRpc(networkObject.NetworkObjectId, clientId, data);
+        ClientSpawnHeroClientRpc(networkObject.NetworkObjectId, clientId, data, rarity);
     }
 
     void CheckGetPosition()
@@ -130,20 +248,15 @@ public class Hero_Holder : NetworkBehaviour
     
 
     [ClientRpc]
-    private void ClientSpawnHeroClientRpc(ulong networkID, ulong clientId, HeroData data)
+    private void ClientSpawnHeroClientRpc(ulong networkID, ulong clientId, HeroData data, string rarity)
     {
         if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(networkID, out NetworkObject heroNetworkObject))
         {
             Hero hero = heroNetworkObject.GetComponent<Hero>();
 
             m_Heroes.Add(hero);
-            hero.Initalize(data, this);
+            hero.Initalize(data, this, rarity);
             CheckGetPosition();
         }
-    }
-
-    private ulong LocalID()
-    {
-        return NetworkManager.Singleton.LocalClientId;
     }
 }
