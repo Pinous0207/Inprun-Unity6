@@ -1,4 +1,10 @@
 
+public enum HostType
+{
+    Host,
+    Client,
+    All
+}
 public enum Rarity
 {
     Common,

@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UIElements;
 using System.Collections.Generic;
+using System;
 
 public class Hero : Character
 {
@@ -16,12 +17,18 @@ public class Hero : Character
     public Hero_Scriptable m_Data;
     bool isMove = false;
 
+    public string HeroName;
+    public Rarity HeroRarity;
+
     public void Initalize(HeroData obj, Hero_Holder holder, string rarity)
     {
-        parent_holder = holder;
+       parent_holder = holder;
         ATK = obj.heroATK;
         attackRange = obj.heroRange;
         attackSpeed = obj.heroATK_Speed;
+
+        HeroName = obj.heroName;
+        HeroRarity = (Rarity)Enum.Parse(typeof(Rarity), rarity);
         GetInitCharacter(obj.heroName, rarity);
     }
 

@@ -44,8 +44,14 @@ public class Hero_Holder : NetworkBehaviour
     }
 
     #region SELL
-    private void Sell()
+    private void Sell(bool GetNavigation = true)
     {
+        if (GetNavigation)
+        {
+            UI_Main.instance.GetNavigation(string.Format("영웅을 판매하였습니다. {0}{1}",
+             Net_Utils.RarityColor(m_Heroes[0].HeroRarity),
+             m_Heroes[0].HeroName));
+        }
         Net_Utils.HostAndClientMethod(
             () => SellServerRpc(Net_Utils.LocalID()),
             () => SellCharacter(Net_Utils.LocalID()));
@@ -146,9 +152,9 @@ public class Hero_Holder : NetworkBehaviour
             }
 
         }
-        for (int i = 0; i < holderTemp.Length; i++) Spawner.instance.Hero_Holders[holderTemp[i]].Sell();
+        for (int i = 0; i < holderTemp.Length; i++) Spawner.instance.Hero_Holders[holderTemp[i]].Sell(false);
 
-        Spawner.instance.Summon("UnCommon");
+        Spawner.instance.Summon("UnCommon", true);
     }
 
     public void HeroChange(Hero_Holder holder)

@@ -34,7 +34,7 @@ public class Monster : Character
         if (isDead) return;
 
         transform.position = Vector2.MoveTowards(transform.position, move_list[target_Value], Time.deltaTime * m_Speed);
-        if (Vector2.Distance(transform.position, move_list[target_Value]) <= 0.0f)
+        if (Vector2.Distance(transform.position, move_list[target_Value]) <= 0.1f)
         {
             target_Value++;
             renderer.flipX = target_Value >= 3 ? true : false;
@@ -65,6 +65,7 @@ public class Monster : Character
         {
             isDead = true;
             gameObject.layer = LayerMask.NameToLayer("Default");
+            Game_Mng.instance.GetMoney(1);
             StartCoroutine(Dead_Coroutine());
             AnimatorChange("DEAD", true);
         }

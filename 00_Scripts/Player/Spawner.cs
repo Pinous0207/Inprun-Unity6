@@ -125,15 +125,18 @@ public class Spawner : NetworkBehaviour
     #endregion
 
     #region Ä³¸¯ÅÍ ¼ÒÈ¯
-    public void Summon(string Rarity)
+    public void Summon(string Rarity, bool NoneLimit = false)
     {
-        //if (Game_Mng.instance.Money < Game_Mng.instance.SummonCount)
-        //{
-        //    return;
-        //}
+        if (NoneLimit == false)
+        {
+            if (Game_Mng.instance.Money < Game_Mng.instance.SummonCount) return;
+            if (Game_Mng.instance.HeroCount >= Game_Mng.instance.HeroMaximumCount) return;
 
-        //Game_Mng.instance.Money -= Game_Mng.instance.SummonCount;
-        //Game_Mng.instance.SummonCount += 2;
+            Game_Mng.instance.Money -= Game_Mng.instance.SummonCount;
+            Game_Mng.instance.SummonCount += 2;
+            Game_Mng.instance.HeroCount++;
+        }
+
         Net_Utils.HostAndClientMethod(
             () => ServerSpawnHeroServerRpc(Net_Utils.LocalID(), Rarity),
             () => HeroSpawn(Net_Utils.LocalID(), Rarity));
@@ -156,7 +159,10 @@ public class Spawner : NetworkBehaviour
         string Organizers = temp + Host_Client_Value_Index[value].ToString();
 
         var existingHolder = GetExistingHolder(temp, data.Name);
-        if(existingHolder != null)
+
+        ClientNavigationClientRpc(clientId, data.Name, data.rare.ToString());
+
+        if (existingHolder != null)
         {
             existingHolder.SpawnCharacter(data.GetHeroData(), rarity);
             return;
@@ -190,6 +196,7 @@ public class Spawner : NetworkBehaviour
         if (Net_Utils.TryGetSpawnedObject(networkID, out NetworkObject heroNetworkObject))
         {
             bool isPlayer = clientId == Net_Utils.LocalID();
+
             SetPositionHero(heroNetworkObject, 
                 isPlayer ? Player_spawn_list : Other_spawn_list,
                 isPlayer ? Player_spawn_list_Array : Other_spawn_list_Array);
@@ -200,6 +207,17 @@ public class Spawner : NetworkBehaviour
             Host_Client_Value_Index[value]++;
             goHolder.Holder_Part_Name = Organizers;
             goHolder.SpawnCharacter(data, rarity);
+        }
+    }
+
+    [ClientRpc]
+    private void ClientNavigationClientRpc(ulong networkID, string heroName, string rarity)
+    {
+        if (networkID == Net_Utils.LocalID())
+        {
+            UI_Main.instance.GetNavigation(string.Format("¿µ¿õÀ» È¹µæÇÏ¿´½À´Ï´Ù. {0}{1}", 
+                Net_Utils.RarityColor((Rarity)Enum.Parse(typeof(Rarity), rarity)), 
+                heroName));
         }
     }
 

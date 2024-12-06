@@ -25,4 +25,17 @@ public class Net_Utils
         if (LocalID() == cleintID) return true;
         return false;
     }
+
+    public static string RarityColor(Rarity rarity)
+    {
+        switch(rarity)
+        {
+            case Rarity.Common: return "<color=#A4A4A4>";
+            case Rarity.UnCommon: return "<color=#79FF73>";
+            case Rarity.Rare: return "<color=#6EE5FF>";
+            case Rarity.Hero: return "<color=#FF9EF5>";
+            case Rarity.Legendary: return "<color=#FFBA13>";
+        }
+        return "";
+    }
 }
