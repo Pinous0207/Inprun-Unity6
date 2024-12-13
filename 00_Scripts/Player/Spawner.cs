@@ -119,9 +119,32 @@ public class Spawner : NetworkBehaviour
                         Other_spawn_list_Array.Add(false);
                         break;
                 }
+
+                if (IsServer)
+                {
+                    StartCoroutine(DelayHeroHolderSpawn(Player));
+                }
             }
         }
+        Host_Client_Value_Index[0] = 0; // HOST
+        Host_Client_Value_Index[1] = 0; // CLIENT
     }
+    IEnumerator DelayHeroHolderSpawn(bool Player)
+    {
+        var go = Instantiate(_spawn_Holder);
+        NetworkObject networkObject = go.GetComponent<NetworkObject>();
+        networkObject.Spawn();
+
+        string temp = Player == true ? "HOST" : "CLIENT";
+        int value = Player == true ? 0 : 1;
+        string Organizers = temp + Host_Client_Value_Index[value].ToString();
+        Host_Client_Value_Index[value]++;
+
+        yield return new WaitForSeconds(0.1f);
+
+        SpawnGridClientRpc(networkObject.NetworkObjectId, Organizers);
+    }
+
     #endregion
 
     #region 캐릭터 소환
@@ -153,7 +176,6 @@ public class Spawner : NetworkBehaviour
         Hero_Scriptable[] m_Character_Datas = Resources.LoadAll<Hero_Scriptable>("Character_Scriptable/" + rarity);
         var data = m_Character_Datas[UnityEngine.Random.Range(0, m_Character_Datas.Length)];
 
-        bool GetHero = false;
         string temp = clientId == 0 ? "HOST" : "CLIENT";
         int value = clientId == 0 ? 0 : 1;
         string Organizers = temp + Host_Client_Value_Index[value].ToString();
@@ -167,15 +189,10 @@ public class Spawner : NetworkBehaviour
             existingHolder.SpawnCharacter(data.GetHeroData(), rarity);
             return;
         }
-       
-        if (GetHero == false)
-        {
-            var go = Instantiate(_spawn_Holder);
-            NetworkObject networkObject = go.GetComponent<NetworkObject>();
-            networkObject.Spawn();
 
-            ClientSpawnHeroClientRpc(networkObject.NetworkObjectId, clientId, data.GetHeroData(), Organizers, value, rarity);
-        }
+        var networkObject = Hero_Holders[Organizers].GetComponent<NetworkObject>();
+
+        ClientSpawnHeroClientRpc(networkObject.NetworkObjectId, data.GetHeroData(), value, rarity);
     }
 
     private Hero_Holder GetExistingHolder(string clientKey, string heroName)
@@ -191,21 +208,36 @@ public class Spawner : NetworkBehaviour
     }
 
     [ClientRpc]
-    private void ClientSpawnHeroClientRpc(ulong networkID, ulong clientId, HeroData data, string Organizers, int value, string rarity)
+    private void SpawnGridClientRpc(ulong networkID, string Organizers)
     {
         if (Net_Utils.TryGetSpawnedObject(networkID, out NetworkObject heroNetworkObject))
         {
-            bool isPlayer = clientId == Net_Utils.LocalID();
-
-            SetPositionHero(heroNetworkObject, 
-                isPlayer ? Player_spawn_list : Other_spawn_list,
-                isPlayer ? Player_spawn_list_Array : Other_spawn_list_Array);
+            bool isPlayer;
+            if (Organizers.Contains("HOST"))
+            {
+                isPlayer = Net_Utils.LocalID() == 0 ? true : false;
+            }
+            else isPlayer = Net_Utils.LocalID() == 0 ? false : true;
 
             Hero_Holder goHolder = heroNetworkObject.GetComponent<Hero_Holder>();
+            SetPositionHero(heroNetworkObject,
+                   isPlayer ? Player_spawn_list : Other_spawn_list,
+                   isPlayer ? Player_spawn_list_Array : Other_spawn_list_Array);
 
             Hero_Holders.Add(Organizers, goHolder);
-            Host_Client_Value_Index[value]++;
+
             goHolder.Holder_Part_Name = Organizers;
+        }
+    }
+
+    [ClientRpc]
+    private void ClientSpawnHeroClientRpc(ulong networkID, HeroData data, int value,string rarity)
+    {
+        if (Net_Utils.TryGetSpawnedObject(networkID, out NetworkObject heroNetworkObject))
+        {
+            Hero_Holder goHolder = heroNetworkObject.GetComponent<Hero_Holder>();
+            Host_Client_Value_Index[value]++;
+
             goHolder.SpawnCharacter(data, rarity);
         }
     }
