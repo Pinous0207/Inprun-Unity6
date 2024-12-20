@@ -19,10 +19,12 @@ public class Hero : Character
 
     public string HeroName;
     public Rarity HeroRarity;
+    [SerializeField] private GameObject SpawnParticle;
 
     public void Initalize(HeroData obj, Hero_Holder holder, string rarity)
     {
-       parent_holder = holder;
+        m_Data = Resources.Load<Hero_Scriptable>("Character_Scriptable/" + rarity + "/" + obj.heroName);
+        parent_holder = holder;
         ATK = obj.heroATK;
         attackRange = obj.heroRange;
         attackSpeed = obj.heroATK_Speed;
@@ -30,6 +32,8 @@ public class Hero : Character
         HeroName = obj.heroName;
         HeroRarity = (Rarity)Enum.Parse(typeof(Rarity), rarity);
         GetInitCharacter(obj.heroName, rarity);
+
+        Instantiate(SpawnParticle, parent_holder.transform.position, Quaternion.identity);
     }
 
     public void Position_Change(Hero_Holder holder, List<Vector2> poss, int myIndex)
@@ -87,7 +91,8 @@ public class Hero : Character
             {
                 attackSpeed = 0.0f;
                 AnimatorChange("ATTACK", true);
-                AttackMonsterServerRpc(target.NetworkObjectId);
+                GetBullet();
+                //AttackMonsterServerRpc(target.NetworkObjectId);
             }
         }
         else
@@ -96,8 +101,21 @@ public class Hero : Character
         }
     }
 
+    public void GetBullet()
+    {
+        var go = Instantiate(m_Data.HitParticle, transform.position + new Vector3(0.0f, 0.1f), Quaternion.identity);
+        go.Init(target.transform, this);
+    }
+
+
+    public void SetDamage()
+    {
+        if(target != null)
+            AttackMonsterServerRpc(target.NetworkObjectId);
+    }
+
     [ServerRpc(RequireOwnership = false)]
-    private void AttackMonsterServerRpc(ulong monsterId)
+    public void AttackMonsterServerRpc(ulong monsterId)
     {
         if(NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(monsterId, out var spawnedObject))
         {

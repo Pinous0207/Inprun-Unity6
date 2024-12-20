@@ -35,7 +35,7 @@ public class Spawner : NetworkBehaviour
     public Dictionary<string, Hero_Holder> Hero_Holders = new Dictionary<string, Hero_Holder>();
     private int[] Host_Client_Value_Index = new int[2];
     public static float xValue, yValue;
-
+    Hero_Scriptable data;
     public void Holder_Position_Set(string Value01, string Value02)
     {
         Net_Utils.HostAndClientMethod(
@@ -148,17 +148,11 @@ public class Spawner : NetworkBehaviour
     #endregion
 
     #region 캐릭터 소환
-    public void Summon(string Rarity, bool NoneLimit = false)
+    public void Summon(string Rarity, Hero_Scriptable scriptData = null)
     {
-        if (NoneLimit == false)
-        {
-            if (Game_Mng.instance.Money < Game_Mng.instance.SummonCount) return;
-            if (Game_Mng.instance.HeroCount >= Game_Mng.instance.HeroMaximumCount) return;
-
-            Game_Mng.instance.Money -= Game_Mng.instance.SummonCount;
-            Game_Mng.instance.SummonCount += 2;
-            Game_Mng.instance.HeroCount++;
-        }
+        data = scriptData;
+        if (scriptData == null)
+            data = Data(Rarity);
 
         Net_Utils.HostAndClientMethod(
             () => ServerSpawnHeroServerRpc(Net_Utils.LocalID(), Rarity),
@@ -171,11 +165,16 @@ public class Spawner : NetworkBehaviour
         HeroSpawn(clientId, rarity);
     }
 
-    private void HeroSpawn(ulong clientId, string rarity)
+    public Hero_Scriptable Data(string rarity)
     {
         Hero_Scriptable[] m_Character_Datas = Resources.LoadAll<Hero_Scriptable>("Character_Scriptable/" + rarity);
         var data = m_Character_Datas[UnityEngine.Random.Range(0, m_Character_Datas.Length)];
 
+        return data;
+    }
+
+    private void HeroSpawn(ulong clientId, string rarity)
+    {
         string temp = clientId == 0 ? "HOST" : "CLIENT";
         int value = clientId == 0 ? 0 : 1;
         string Organizers = temp + Host_Client_Value_Index[value].ToString();
@@ -193,6 +192,22 @@ public class Spawner : NetworkBehaviour
         var networkObject = Hero_Holders[Organizers].GetComponent<NetworkObject>();
 
         ClientSpawnHeroClientRpc(networkObject.NetworkObjectId, data.GetHeroData(), value, rarity);
+    }
+
+    public Vector3 HolderPosition(Hero_Scriptable data)
+    {
+        string temp = Net_Utils.LocalID() == 0 ? "HOST" : "CLIENT";
+        int value = Net_Utils.LocalID() == 0 ? 0 : 1;
+        string Organizers = temp + Host_Client_Value_Index[value].ToString();
+
+        var existingHolder = GetExistingHolder(temp, data.Name);
+
+        if (existingHolder != null)
+        {
+            return existingHolder.transform.position;
+        }
+
+        return Hero_Holders[Organizers].transform.position;
     }
 
     private Hero_Holder GetExistingHolder(string clientKey, string heroName)

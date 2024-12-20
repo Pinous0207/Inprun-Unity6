@@ -27,6 +27,7 @@ public class Hero_Scriptable : ScriptableObject
     public float Range;
     public RuntimeAnimatorController m_Animator;
     public Rarity rare;
+    public Bullet HitParticle;
     public HeroData GetHeroData()
     {
         return new HeroData

@@ -154,7 +154,7 @@ public class Hero_Holder : NetworkBehaviour
         }
         for (int i = 0; i < holderTemp.Length; i++) Spawner.instance.Hero_Holders[holderTemp[i]].Sell(false);
 
-        Spawner.instance.Summon("UnCommon", true);
+        Spawner.instance.Summon("UnCommon");
     }
 
     public void HeroChange(Hero_Holder holder)
