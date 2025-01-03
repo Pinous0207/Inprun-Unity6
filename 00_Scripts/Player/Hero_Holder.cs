@@ -18,7 +18,7 @@ public class Hero_Holder : NetworkBehaviour
     public string Holder_Name;
     public List<Hero> m_Heroes = new List<Hero>();
     public int index;
-    HeroData m_Data;
+    public HeroData m_Data;
 
     public readonly Vector2[] One = { Vector2.zero };
     public readonly Vector2[] Two =
@@ -88,14 +88,12 @@ public class Hero_Holder : NetworkBehaviour
     private void DestroyServerRpc(ulong clientID)
     {
         DestroyClientRpc(clientID);
-        NetworkObject holderObj = NetworkManager.Singleton.SpawnManager.SpawnedObjects[NetworkObjectId];
-        holderObj.Despawn();
+        Holder_Name = "";
     }
 
     [ClientRpc]
     private void DestroyClientRpc(ulong clientID)
     {
-        Spawner.instance.Hero_Holders.Remove(Holder_Part_Name);
         if (Net_Utils.IsClientCheck(clientID))
         {
             Spawner.Player_spawn_list_Array[index] = false;
@@ -153,7 +151,7 @@ public class Hero_Holder : NetworkBehaviour
 
         }
         for (int i = 0; i < holderTemp.Length; i++) Spawner.instance.Hero_Holders[holderTemp[i]].Sell(false);
-
+        ReturnRange();
         Spawner.instance.Summon("UnCommon");
     }
 

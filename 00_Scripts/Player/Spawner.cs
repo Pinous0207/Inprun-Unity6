@@ -36,6 +36,8 @@ public class Spawner : NetworkBehaviour
     private int[] Host_Client_Value_Index = new int[2];
     public static float xValue, yValue;
     Hero_Scriptable data;
+
+    Coroutine spawn_Monster_Coroutine;
     public void Holder_Position_Set(string Value01, string Value02)
     {
         Net_Utils.HostAndClientMethod(
@@ -65,12 +67,13 @@ public class Spawner : NetworkBehaviour
 
         (holder01.Holder_Name, holder02.Holder_Name) = (holder02.Holder_Name, holder01.Holder_Name);
         (holder01.m_Heroes, holder02.m_Heroes) = (new List<Hero>(holder02.m_Heroes), new List<Hero>(holder01.m_Heroes));
+        (holder01.m_Data, holder02.m_Data) = (holder02.m_Data, holder01.m_Data);
     }
 
     private void Start()
     {
         SetGrid();
-        StartCoroutine(Spawn_Monster_Coroutine());
+        spawn_Monster_Coroutine = StartCoroutine(Spawn_Monster_Coroutine(false));
     }
 
     private void SetGrid()
@@ -155,14 +158,14 @@ public class Spawner : NetworkBehaviour
             data = Data(Rarity);
 
         Net_Utils.HostAndClientMethod(
-            () => ServerSpawnHeroServerRpc(Net_Utils.LocalID(), Rarity),
-            () => HeroSpawn(Net_Utils.LocalID(), Rarity));
+            () => ServerSpawnHeroServerRpc(Net_Utils.LocalID(), Rarity, data.name),
+            () => HeroSpawn(Net_Utils.LocalID(), Rarity, data.name));
     }
 
     [ServerRpc(RequireOwnership =false)]
-    private void ServerSpawnHeroServerRpc(ulong clientId, string rarity)
+    private void ServerSpawnHeroServerRpc(ulong clientId, string rarity, string dataName)
     {
-        HeroSpawn(clientId, rarity);
+        HeroSpawn(clientId, rarity, dataName);
     }
 
     public Hero_Scriptable Data(string rarity)
@@ -173,8 +176,9 @@ public class Spawner : NetworkBehaviour
         return data;
     }
 
-    private void HeroSpawn(ulong clientId, string rarity)
+    private void HeroSpawn(ulong clientId, string rarity, string dataName)
     {
+        data = Resources.Load<Hero_Scriptable>("Character_Scriptable/" + rarity + "/" + dataName);
         string temp = clientId == 0 ? "HOST" : "CLIENT";
         int value = clientId == 0 ? 0 : 1;
         string Organizers = temp + Host_Client_Value_Index[value].ToString();
@@ -284,30 +288,60 @@ public class Spawner : NetworkBehaviour
 
     #region 몬스터 소환
 
-    IEnumerator Spawn_Monster_Coroutine()
+    IEnumerator Spawn_Monster_Coroutine(bool GetBoss)
     {
-        yield return new WaitForSeconds(1.0f);
+        yield return new WaitForSeconds(GetBoss == false ? 1.0f : 0.0f);
 
         Net_Utils.HostAndClientMethod(
-            () => ServerMonsterSpawnServerRpc(Net_Utils.LocalID()),
-            () => MonsterSpawn(Net_Utils.LocalID()));
+            () => ServerMonsterSpawnServerRpc(Net_Utils.LocalID(), GetBoss),
+            () => MonsterSpawn(Net_Utils.LocalID(), GetBoss));
 
-        StartCoroutine(Spawn_Monster_Coroutine());
+        if (GetBoss) yield break;
+
+        spawn_Monster_Coroutine = StartCoroutine(Spawn_Monster_Coroutine(GetBoss));
     }
 
+    public void ReMonsterSpawn()
+    {
+        if(spawn_Monster_Coroutine != null)
+        {
+            StopCoroutine(spawn_Monster_Coroutine);
+        }
+        spawn_Monster_Coroutine = StartCoroutine(Spawn_Monster_Coroutine(false));
+    }
+
+
+    public void BossSpawn()
+    {
+        if(spawn_Monster_Coroutine != null)
+        {
+            StopCoroutine(spawn_Monster_Coroutine);
+        }
+
+        StartCoroutine(Spawn_Monster_Coroutine(true));
+    }
+ 
     [ServerRpc(RequireOwnership = false)]
-    private void ServerMonsterSpawnServerRpc(ulong clientId)
+    private void ServerMonsterSpawnServerRpc(ulong clientId, bool GetBoss)
     {
-        MonsterSpawn(clientId);
+        MonsterSpawn(clientId, GetBoss);
     }
 
-    private void MonsterSpawn(ulong clientId)
+    private void MonsterSpawn(ulong clientId, bool GetBoss)
     {
-        var go = Instantiate(_spawn_Monster_Prefab);
+        Monster go = null;
+        if (!GetBoss)
+        {
+            go = Instantiate(_spawn_Monster_Prefab);
+        }
+        else
+        {
+            go = Instantiate(Game_Mng.instance.B_Data.bossData[(int)(Game_Mng.instance.Wave / 10)-1].BossPrefab);
+        }
         NetworkObject networkObject = go.GetComponent<NetworkObject>();
         networkObject.Spawn();
         
-        Game_Mng.instance.AddMonster(go);
+        Game_Mng.instance.AddMonster(go, GetBoss);
         ClientMonsterSetClientRpc(networkObject.NetworkObjectId, clientId);
     }
 

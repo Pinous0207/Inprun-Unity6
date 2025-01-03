@@ -2,6 +2,7 @@ using NUnit.Framework;
 using UnityEngine;
 using System.Collections.Generic;
 using Unity.Netcode;
+using Unity.VisualScripting;
 
 public delegate void OnMoneyUpEventHandler();
 public delegate void OnTimerUpEventHandler();
@@ -15,6 +16,7 @@ public class Game_Mng : NetworkBehaviour
         {
             instance = this;
         }
+        B_Data = Resources.Load<Boss_Scriptable>("Boss/Boss_Scriptable");
     }
 
     public float Timer = 60.0f;
@@ -23,17 +25,23 @@ public class Game_Mng : NetworkBehaviour
     public int SummonCount = 20;
     public int HeroCount;
     public int HeroMaximumCount = 25;
+    public int[] Upgrade = new int[4];
 
     public event OnMoneyUpEventHandler OnMoneyUp;
     public event OnTimerUpEventHandler OnTimerUp;
 
     public List<Monster> monsters = new List<Monster>();
+    public List<Monster> Boss_Monsters = new List<Monster>();
+    public Boss_Scriptable B_Data;
     public int MonsterCount;
+
+    public bool GetBoss = false;
 
     private void Update()
     {
         if(IsServer)
         {
+            bool GetWaveUp = false;
             if(Timer > 0)
             {
                 Timer -= Time.deltaTime;
@@ -41,10 +49,16 @@ public class Game_Mng : NetworkBehaviour
             }
             else
             {
+                if(GetBoss)
+                {
+                    Debug.Log("게임 실패");
+                    return;
+                }
                 Wave++;
-                Timer = 60;
+                GetWaveUp = true;
+                Timer = 60.0f;
             }
-            NotifyTimerClientRpc(Timer, Wave);
+            NotifyTimerClientRpc(Timer, Wave, GetWaveUp);
         }
     }
 
@@ -56,18 +70,32 @@ public class Game_Mng : NetworkBehaviour
         }
     }
 
-    public void AddMonster(Monster monster)
+    public void AddMonster(Monster monster, bool Boss = false)
     {
-        monsters.Add(monster);
+        if(Boss)
+            Boss_Monsters.Add(monster);
+        else
+            monsters.Add(monster);
         MonsterCount++;
         UpdateMonsterCountOnClients();
     }
-    public void RemoveMonster(Monster monster)
+    public void RemoveMonster(Monster monster, bool Boss =false)
     {
-        monsters.Remove(monster);
+        if (Boss)
+        {
+            Boss_Monsters.Remove(monster);
+            if(Boss_Monsters.Count == 0)
+            {
+                GetBoss = false;
+                Timer = 0.0f;
+            }
+        }
+        else
+            monsters.Remove(monster);
         MonsterCount--;
         UpdateMonsterCountOnClients();
     }
+
 
     private void UpdateMonsterCountOnClients()
     {
@@ -75,10 +103,23 @@ public class Game_Mng : NetworkBehaviour
     }
 
     [ClientRpc]
-    private void NotifyTimerClientRpc(float timer, int wave)
+    private void NotifyTimerClientRpc(float timer, int wave, bool GetWaveUp)
     {
         Timer = timer;
         Wave = wave;
+
+        if(GetWaveUp)
+        {
+            GetBoss = false;
+            if (Wave % 10 == 0)
+            {
+                GetBoss = true;
+                Spawner.instance.BossSpawn();
+            }
+            else
+                Spawner.instance.ReMonsterSpawn();
+            UI_Main.instance.GetWavePopUp(GetBoss);
+        }
 
         OnTimerUp?.Invoke();
     }

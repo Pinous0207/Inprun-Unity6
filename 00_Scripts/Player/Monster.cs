@@ -8,18 +8,36 @@ using Unity.Netcode;
 
 public class Monster : Character
 {
+    public bool Boss;
+
     [SerializeField] private float m_Speed;
     [SerializeField] private HitText hitText;
     [SerializeField] private Image m_Fill, m_Fill_Deco;
 
     int target_Value = 0;
-    public int HP = 0, MaxHP = 0;
+    public double HP = 0, MaxHP = 0;
     bool isDead = false;
     List<Vector2> move_list = new List<Vector2>();
     public override void Awake()
     {
-        HP = MaxHP;
+        HP = CalculateMonsterHP(Game_Mng.instance.Wave);
+        MaxHP = HP;
         base.Awake();
+    }
+
+    // 지수적 증가 공식
+    double CalculateMonsterHP(int waveLevel)
+    {
+        double baseHP = 50.0f;
+
+        double powerMultiplier = Mathf.Pow(1.1f, waveLevel);
+
+        if(waveLevel % 10 == 0)
+        {
+            powerMultiplier += 0.05f * (waveLevel / 10);
+        }
+
+        return baseHP * powerMultiplier * (Boss ? 10 : 1);
     }
 
     public void Init(List<Vector2> vectorList)
@@ -45,7 +63,7 @@ public class Monster : Character
         }
     }
 
-    public void GetDamage(int dmg)
+    public void GetDamage(double dmg)
     {
         if (!IsServer) return;
         if (isDead) return;
@@ -54,7 +72,7 @@ public class Monster : Character
         NotifyClientUpdateClientRpc(HP -= dmg , dmg);
     }
 
-    private void GetDamageMonster(int dmg)
+    private void GetDamageMonster(double dmg)
     {
         HP -= dmg;
         m_Fill.fillAmount = (float)HP / (float)MaxHP;
@@ -72,7 +90,7 @@ public class Monster : Character
     }
 
     [ClientRpc]
-    public void NotifyClientUpdateClientRpc(int hp, int dmg)
+    public void NotifyClientUpdateClientRpc(double hp, double dmg)
     {
         HP = hp;
         m_Fill.fillAmount = (float)HP / (float)MaxHP;
@@ -103,7 +121,7 @@ public class Monster : Character
 
         if (IsServer)
         {
-            Game_Mng.instance.RemoveMonster(this);
+            Game_Mng.instance.RemoveMonster(this, Boss);
             this.gameObject.SetActive(false);
             Destroy(this); // NetworkBehaviour
         }

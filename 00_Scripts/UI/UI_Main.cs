@@ -40,11 +40,45 @@ public class UI_Main : MonoBehaviour
     [SerializeField] private float yPosMin, yPosMax;
     [SerializeField] private float xPos;
 
+    [Header("##Upgrade##")]
+    [SerializeField] private TextMeshProUGUI u_Money_T;
+    [SerializeField] private TextMeshProUGUI[] u_Upgrade_T;
+    [SerializeField] private TextMeshProUGUI[] u_Upgrade_Asset_T;
+
+    [Header("##BOSS##")]
+    [SerializeField] private GameObject WavePopUp_Object;
+    [SerializeField] private GameObject BossWaveCount;
+    [SerializeField] private TextMeshProUGUI WaveText_Object;
+    [SerializeField] private TextMeshProUGUI WaveBossName;
+    [SerializeField] private TextMeshProUGUI BossTimer_T;
     private void Start()
     {
         Game_Mng.instance.OnMoneyUp += Money_Anim;
         Game_Mng.instance.OnTimerUp += WavePoint;
         SummonButton.onClick.AddListener(() => ClickSummon());
+    }
+
+    public void GetWavePopUp(bool GetBoss)
+    {
+        WavePopUp_Object.SetActive(true);
+        WaveText_Object.text = string.Format("WAVE {0}", Game_Mng.instance.Wave);
+
+        if(GetBoss)
+        {
+            Animator animator = WavePopUp_Object.GetComponent<Animator>();
+            animator.SetTrigger("Boss");
+            WaveBossName.text = Game_Mng.instance.B_Data.bossData[(int)(Game_Mng.instance.Wave / 10) -1].BossName;
+        }
+        BossWaveCount.SetActive(GetBoss);
+    }
+
+    public void UpgradeButton(int value)
+    {
+        if (Game_Mng.instance.Money < 30 + Game_Mng.instance.Upgrade[value])
+            return;
+
+        Game_Mng.instance.Money -= (30 + Game_Mng.instance.Upgrade[value]);
+        Game_Mng.instance.Upgrade[value]++;
     }
 
     private void ClickSummon()
@@ -123,6 +157,13 @@ public class UI_Main : MonoBehaviour
 
         Money_T.text = Game_Mng.instance.Money.ToString();
         Summon_T.text = Game_Mng.instance.SummonCount.ToString();
+        u_Money_T.text = Game_Mng.instance.Money.ToString();
+
+        for(int i = 0; i < u_Upgrade_T.Length; i++)
+        {
+            u_Upgrade_T[i].text = "Lv." + (Game_Mng.instance.Upgrade[i]+1).ToString();
+            u_Upgrade_Asset_T[i].text = (30 + Game_Mng.instance.Upgrade[i]).ToString();
+        }
 
         Summon_T.color = Game_Mng.instance.Money >= Game_Mng.instance.SummonCount ? Color.white : Color.red;
     }
@@ -146,8 +187,9 @@ public class UI_Main : MonoBehaviour
 
     public void WavePoint()
     {
-        Timer_T.text = UpdateTimerText();
+        Timer_T.text = Game_Mng.instance.GetBoss == false ? UpdateTimerText() : "In BOSS!";
         Wave_T.text = "WAVE " + Game_Mng.instance.Wave.ToString();
+        BossTimer_T.text = UpdateTimerText();
     }
 
     string UpdateTimerText()

@@ -12,9 +12,9 @@ public class HitText : MonoBehaviour
     public TextMeshPro damageText;
     private Color textColor;
 
-    public void Initalize(int dmg)
+    public void Initalize(double dmg)
     {
-        damageText.text = dmg.ToString();
+        damageText.text = string.Format("{0:0}", dmg);
         textColor = damageText.color;
         StartCoroutine(MoveAndFade());
     }
