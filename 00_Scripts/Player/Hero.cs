@@ -33,6 +33,7 @@ public class Hero : Character
     public SpriteRenderer circleRenderer;
     [SerializeField] private GameObject SpawnParticle;
 
+
     private int UpgradeCount()
     {
         switch(m_Data.rare)
@@ -141,8 +142,35 @@ public class Hero : Character
 
     public void SetDamage()
     {
-        if(target != null)
+        if (target != null)
+        {
             AttackMonsterServerRpc(target.NetworkObjectId);
+            if (m_Data.effectType != null)
+            {
+                for (int i = 0; i < m_Data.effectType.Length; i++)
+                {
+                    List<float> values = new List<float>(m_Data.effectType[i].parameters);
+
+                    switch (m_Data.effectType[i].debuffType)
+                    {
+                        case Debuff.Slow:
+                            if (UnityEngine.Random.value <= values[0])
+                            {
+                                values.RemoveAt(0);
+                                target.GetComponent<Monster>().ApplyDebuffServerRpc((int)Debuff.Slow, values.ToArray());
+                            }
+                            break;
+                        case Debuff.Stun:
+                            if (UnityEngine.Random.value <= values[0])
+                            {
+                                values.RemoveAt(0);
+                                target.GetComponent<Monster>().ApplyDebuffServerRpc((int)Debuff.Stun, values.ToArray());
+                            }
+                            break;
+                    }
+                }
+            }
+        }
     }
 
     [ServerRpc(RequireOwnership = false)]

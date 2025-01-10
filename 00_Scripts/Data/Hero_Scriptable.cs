@@ -1,5 +1,26 @@
+using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
+
+[System.Serializable]
+public class StatusEffect
+{
+    public Debuff debuffType;
+    public float[] parameters;
+
+    public void ConfigureParameters()
+    {
+        switch(debuffType)
+        {
+            case Debuff.Slow:
+                parameters = new float[3];
+                break;
+            case Debuff.Stun:
+                parameters = new float[2];
+                break;
+        }
+    }
+}
 
 [System.Serializable]
 public struct HeroData : INetworkSerializable
@@ -28,6 +49,11 @@ public class Hero_Scriptable : ScriptableObject
     public RuntimeAnimatorController m_Animator;
     public Rarity rare;
     public Bullet HitParticle;
+    
+    [Header("## Hero Debuff Data")]
+    [Space(20f)]
+    public StatusEffect[] effectType;
+
     public HeroData GetHeroData()
     {
         return new HeroData

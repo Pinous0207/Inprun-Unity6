@@ -5,30 +5,42 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
 using Unity.Netcode;
+using System;
 
 public class Monster : Character
 {
     public bool Boss;
 
     [SerializeField] private float m_Speed;
+    private float originalSpeed;
+    private float currentSlowAmount;
+    private float currentSlowDuration;
     [SerializeField] private HitText hitText;
     [SerializeField] private Image m_Fill, m_Fill_Deco;
+    [SerializeField] private Color slowColor;
+    [SerializeField] private GameObject StunParticle; 
+    Coroutine slowCoroutine;
+    Coroutine stunCoroutine;
 
     int target_Value = 0;
     public double HP = 0, MaxHP = 0;
     bool isDead = false;
+    bool isStun = false;
     List<Vector2> move_list = new List<Vector2>();
     public override void Awake()
     {
         HP = CalculateMonsterHP(Game_Mng.instance.Wave);
         MaxHP = HP;
+
+        originalSpeed = m_Speed;
+
         base.Awake();
     }
 
     // 지수적 증가 공식
     double CalculateMonsterHP(int waveLevel)
     {
-        double baseHP = 50.0f;
+        double baseHP = 5000.0f;
 
         double powerMultiplier = Mathf.Pow(1.1f, waveLevel);
 
@@ -50,7 +62,7 @@ public class Monster : Character
         m_Fill_Deco.fillAmount = Mathf.Lerp(m_Fill_Deco.fillAmount, m_Fill.fillAmount, Time.deltaTime * 2.0f);
 
         if (isDead) return;
-
+        if (isStun) return;
         transform.position = Vector2.MoveTowards(transform.position, move_list[target_Value], Time.deltaTime * m_Speed);
         if (Vector2.Distance(transform.position, move_list[target_Value]) <= 0.1f)
         {
@@ -129,5 +141,72 @@ public class Monster : Character
         {
             this.gameObject.SetActive(false);
         }
+    }
+    [ServerRpc(RequireOwnership = false)]
+    public void ApplyDebuffServerRpc(int debuffType, float[] values)
+    {
+        Debuff debuff = (Debuff)debuffType;
+        switch(debuff)
+        {
+            case Debuff.Slow:
+                if (values[0] > currentSlowAmount || (values[0] == currentSlowAmount && values[1] > currentSlowDuration))
+                {
+                    currentSlowAmount = values[0];
+                    currentSlowDuration = values[1];
+
+                    ApplySlowClientRpc(values[0], values[1]);
+                }
+                break;
+            case Debuff.Stun:
+                ApplyStunClientRpc(values[0]);
+                break;
+        }
+    }
+
+    [ClientRpc]
+    private void ApplyStunClientRpc(float stunDuration)
+    {
+        CoroutineStop(stunCoroutine);
+        stunCoroutine = StartCoroutine(EffectCoroutine(stunDuration, () =>
+        {
+            isStun = true;
+            StunParticle.SetActive(true);
+        }, () =>
+        {
+            isStun = false;
+            StunParticle.SetActive(false);
+        }));
+    }
+
+    [ClientRpc]
+    private void ApplySlowClientRpc(float slowAmount, float duration)
+    {
+        CoroutineStop(slowCoroutine);
+        slowCoroutine = StartCoroutine(EffectCoroutine(duration, () =>
+        {
+            float newSpeed = originalSpeed - (originalSpeed * slowAmount);
+            newSpeed = Mathf.Max(newSpeed, 0.1f);
+            m_Speed = newSpeed;
+            renderer.color = slowColor;
+        }, () =>
+        {
+            m_Speed = originalSpeed;
+            renderer.color = Color.white;
+        }));
+    }
+
+    private void CoroutineStop(Coroutine coroutine)
+    {
+        if(coroutine != null)
+        {
+            StopCoroutine(coroutine);
+        }
+    }
+
+    private IEnumerator EffectCoroutine(float duration, Action FirstAction, Action SecondAction)
+    {
+        FirstAction?.Invoke();
+        yield return new WaitForSeconds(duration);
+        SecondAction?.Invoke();
     }
 }

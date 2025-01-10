@@ -15,6 +15,11 @@ public class Bullet : MonoBehaviour
 
     private void Update()
     {
+        if (target == null)
+        {
+            Destroy(this.gameObject);
+            return;
+        }
         float distance = Vector2.Distance(transform.position, target.position);
         if(distance > 0.1f)
         {
