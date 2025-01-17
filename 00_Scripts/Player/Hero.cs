@@ -22,6 +22,7 @@ public class Hero : Character
     }
     public float attackRange = 1.0f;
     public float attackSpeed = 1.0f;
+    public float attackTime = 0.0f;
     public NetworkObject target;
     public LayerMask enemyLayer;
     public Hero_Scriptable m_Data;
@@ -33,6 +34,9 @@ public class Hero : Character
     public SpriteRenderer circleRenderer;
     [SerializeField] private GameObject SpawnParticle;
 
+    Coroutine ATK_Speed_Coroutine;
+    float atkSpeed_Coroutine_Value = 1.0f;
+    float originalSpeed= 1.0f;
 
     private int UpgradeCount()
     {
@@ -50,6 +54,10 @@ public class Hero : Character
         return -1;
     }
 
+    public void OnDestroy()
+    {
+        Game_Mng.instance.RemoveHero(this);
+    }
     public void Initalize(HeroData obj, Hero_Holder holder, string rarity)
     {
         m_Data = Resources.Load<Hero_Scriptable>("Character_Scriptable/" + rarity + "/" + obj.heroName);
@@ -62,6 +70,7 @@ public class Hero : Character
         HeroRarity = (Rarity)Enum.Parse(typeof(Rarity), rarity);
 
         circleRenderer.color = colors[(int)HeroRarity];
+        Game_Mng.instance.AddHero(this);
 
         GetInitCharacter(obj.heroName, rarity);
 
@@ -111,18 +120,18 @@ public class Hero : Character
         if (isMove) return;
         CheckForEnemies();
     }
-
     void CheckForEnemies()
     {
         Collider2D[] enemiesInRange = Physics2D.OverlapCircleAll(parent_holder.transform.position, attackRange, enemyLayer);
-        attackSpeed += Time.deltaTime;
+        attackTime += Time.deltaTime * (attackSpeed * atkSpeed_Coroutine_Value);
         if(enemiesInRange.Length > 0)
         {
             target = enemiesInRange[0].GetComponent<NetworkObject>();
-            if(attackSpeed >= 1.0f)
+            if(attackTime >= 1.0f)
             {
-                attackSpeed = 0.0f;
+                attackTime = 0.0f;
                 AnimatorChange("ATTACK", true);
+                animator.speed = attackSpeed * atkSpeed_Coroutine_Value;
                 GetBullet();
                 //AttackMonsterServerRpc(target.NetworkObjectId);
             }
@@ -131,6 +140,29 @@ public class Hero : Character
         {
             target = null;
         }
+    }
+
+    public void SetATKSpeed(float value, float time)
+    {
+        if(ATK_Speed_Coroutine != null)
+        {
+            if(value >= atkSpeed_Coroutine_Value)
+            {
+                StopCoroutine(ATK_Speed_Coroutine);
+            }
+        }
+
+        if(atkSpeed_Coroutine_Value <= value)
+            atkSpeed_Coroutine_Value = value;
+
+        float origin = originalSpeed;
+        StartCoroutine(ATKSpeedSet(time, origin));
+    }
+
+    IEnumerator ATKSpeedSet(float timer, float original)
+    {
+        yield return new WaitForSeconds(timer);
+        atkSpeed_Coroutine_Value = original;
     }
 
     public void GetBullet()

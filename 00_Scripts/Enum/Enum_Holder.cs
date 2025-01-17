@@ -1,4 +1,11 @@
 
+public enum SKILL
+{
+    None,
+    Gun,
+    Sword
+}
+
 public enum Debuff
 {
     Slow,

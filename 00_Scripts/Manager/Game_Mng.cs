@@ -27,11 +27,14 @@ public class Game_Mng : NetworkBehaviour
     public int HeroMaximumCount = 25;
     public int[] Upgrade = new int[4];
 
+    public float DistanceMagnitude;
+
     public event OnMoneyUpEventHandler OnMoneyUp;
     public event OnTimerUpEventHandler OnTimerUp;
 
     public List<Monster> monsters = new List<Monster>();
     public List<Monster> Boss_Monsters = new List<Monster>();
+    public List<Hero> heros = new List<Hero>();
     public Boss_Scriptable B_Data;
     public int MonsterCount;
 
@@ -68,6 +71,16 @@ public class Game_Mng : NetworkBehaviour
         {
             NotifyGetMoneyClientRpc(value);
         }
+    }
+
+    public void AddHero(Hero hero)
+    {
+        heros.Add(hero);
+    }
+
+    public void RemoveHero(Hero hero)
+    {
+        heros.Remove(hero);
     }
 
     public void AddMonster(Monster monster, bool Boss = false)

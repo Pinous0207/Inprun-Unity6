@@ -102,6 +102,8 @@ public class Spawner : NetworkBehaviour
         float xCount = tt.localScale.x / 6;
         float yCount = tt.localScale.y / 3;
 
+        Game_Mng.instance.DistanceMagnitude = Mathf.Max(xCount, yCount);
+
         xValue = xCount;
         yValue = yCount;
 
@@ -275,6 +277,7 @@ public class Spawner : NetworkBehaviour
     private void SetPositionHero(NetworkObject obj, List<Vector2> spawnList, List<bool> spawnArrayList)
     {
         int position_value = spawnArrayList.IndexOf(false);
+        Debug.Log(position_value);
         if(position_value != -1)
         {
             spawnArrayList[position_value] = true;
