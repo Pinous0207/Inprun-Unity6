@@ -145,7 +145,7 @@ public class Spawner : NetworkBehaviour
         string Organizers = temp + Host_Client_Value_Index[value].ToString();
         Host_Client_Value_Index[value]++;
 
-        yield return new WaitForSeconds(0.1f);
+        yield return new WaitForSeconds(0.5f);
 
         SpawnGridClientRpc(networkObject.NetworkObjectId, Organizers);
     }

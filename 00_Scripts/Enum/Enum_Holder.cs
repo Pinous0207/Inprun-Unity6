@@ -1,4 +1,8 @@
-
+public enum Localize
+{
+    UI,
+    Hero
+}
 public enum SKILL
 {
     None,
