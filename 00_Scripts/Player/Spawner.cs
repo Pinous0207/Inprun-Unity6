@@ -183,6 +183,15 @@ public class Spawner : NetworkBehaviour
         data = Resources.Load<Hero_Scriptable>("Character_Scriptable/" + rarity + "/" + dataName);
         string temp = clientId == 0 ? "HOST" : "CLIENT";
         int value = clientId == 0 ? 0 : 1;
+        for(int i = 0; i < Hero_Holders.Count / 2; i++)
+        {
+            string OrganizersTemp = temp + i.ToString();
+            if (Hero_Holders[OrganizersTemp].m_Heroes.Count == 0)
+            {
+                Host_Client_Value_Index[value] = i;
+                break;
+            }
+        }
         string Organizers = temp + Host_Client_Value_Index[value].ToString();
 
         var existingHolder = GetExistingHolder(temp, data.Name);
@@ -293,7 +302,7 @@ public class Spawner : NetworkBehaviour
 
     IEnumerator Spawn_Monster_Coroutine(bool GetBoss)
     {
-        yield return new WaitForSeconds(GetBoss == false ? 1.0f : 0.0f);
+        yield return new WaitForSeconds(0.1f);
 
         Net_Utils.HostAndClientMethod(
             () => ServerMonsterSpawnServerRpc(Net_Utils.LocalID(), GetBoss),

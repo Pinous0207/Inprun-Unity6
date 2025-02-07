@@ -7,6 +7,7 @@ using UnityEngine.UI;
 using System.Collections;
 using Unity.Android.Gradle.Manifest;
 using UnityEditor.PackageManager;
+using Unity.Netcode;
 public class UI_Main : MonoBehaviour
 {
     public static UI_Main instance = null;
@@ -51,11 +52,42 @@ public class UI_Main : MonoBehaviour
     [SerializeField] private TextMeshProUGUI WaveText_Object;
     [SerializeField] private TextMeshProUGUI WaveBossName;
     [SerializeField] private TextMeshProUGUI BossTimer_T;
+
+    [Header("##GameOver##")]
+    [SerializeField] private GameObject GameOverUI;
+    [SerializeField] private TextMeshProUGUI HostDPs;
+    [SerializeField] private TextMeshProUGUI ClientDps;
+    [SerializeField] private TextMeshProUGUI GameOverWave;
+
     private void Start()
     {
         Game_Mng.instance.OnMoneyUp += Money_Anim;
         Game_Mng.instance.OnTimerUp += WavePoint;
+        Game_Mng.instance.OnGameOver += Gameover;
+
         SummonButton.onClick.AddListener(() => ClickSummon());
+    }
+
+    private void Gameover()
+    {
+        GameOverUI.SetActive(true);
+        GameOverWave.text = string.Format("WAVE {0}", Game_Mng.instance.Wave);
+
+        StartCoroutine(SceneLoadDelay());
+    }
+
+    IEnumerator SceneLoadDelay()
+    {
+        yield return new WaitForSecondsRealtime(0.2f);
+        HostDPs.text = string.Format("{0:0.0}", Game_Mng.instance.HostDPS);
+        ClientDps.text = string.Format("{0:0.0}", Game_Mng.instance.ClientDPS);
+        yield return new WaitForSecondsRealtime(3.0f);
+        Game_Mng.instance.CleanupNetworkObjects();
+        Time.timeScale = 1.0f;
+        if (NetworkManager.Singleton.IsHost)
+        {
+            NetworkManager.Singleton.SceneManager.LoadScene("MainScene", UnityEngine.SceneManagement.LoadSceneMode.Single);
+        }
     }
 
     public void GetWavePopUp(bool GetBoss)
@@ -151,8 +183,8 @@ public class UI_Main : MonoBehaviour
 
     private void Update()
     {
-        MonsterCount_T.text = Game_Mng.instance.MonsterCount.ToString() + " / 100";
-        MonsterCount_Image.fillAmount = (float)Game_Mng.instance.MonsterCount / 100.0f;
+        MonsterCount_T.text = Game_Mng.instance.MonsterCount.ToString() + " / " + Game_Mng.instance.MonsterLimitCount.ToString();
+        MonsterCount_Image.fillAmount = (float)Game_Mng.instance.MonsterCount / Game_Mng.instance.MonsterLimitCount;
         HeroCount_T.text = UpdateHeroCountText();
 
         Money_T.text = Game_Mng.instance.Money.ToString();

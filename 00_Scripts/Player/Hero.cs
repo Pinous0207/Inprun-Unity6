@@ -5,6 +5,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UIElements;
 using System.Collections.Generic;
 using System;
+using UnityEditor.Build.Content;
 
 public class Hero : Character
 {
@@ -176,6 +177,7 @@ public class Hero : Character
     {
         if (target != null)
         {
+            Game_Mng.instance.DamageCount(ATK);
             AttackMonsterServerRpc(target.NetworkObjectId);
             if (m_Data.effectType != null)
             {

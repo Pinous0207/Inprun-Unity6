@@ -40,7 +40,7 @@ public class Monster : Character
     // 지수적 증가 공식
     double CalculateMonsterHP(int waveLevel)
     {
-        double baseHP = 5000.0f;
+        double baseHP = 5;
 
         double powerMultiplier = Mathf.Pow(1.1f, waveLevel);
 

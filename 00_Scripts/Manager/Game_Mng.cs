@@ -6,6 +6,7 @@ using Unity.VisualScripting;
 
 public delegate void OnMoneyUpEventHandler();
 public delegate void OnTimerUpEventHandler();
+public delegate void OnGameOverEventHandler();
 public class Game_Mng : NetworkBehaviour
 {
     public static Game_Mng instance = null;
@@ -25,12 +26,17 @@ public class Game_Mng : NetworkBehaviour
     public int SummonCount = 20;
     public int HeroCount;
     public int HeroMaximumCount = 25;
+    public int MonsterLimitCount = 100;
     public int[] Upgrade = new int[4];
+    public double Damage;
+
+    public double HostDPS, ClientDPS;
 
     public float DistanceMagnitude;
 
     public event OnMoneyUpEventHandler OnMoneyUp;
     public event OnTimerUpEventHandler OnTimerUp;
+    public event OnGameOverEventHandler OnGameOver;
 
     public List<Monster> monsters = new List<Monster>();
     public List<Monster> Boss_Monsters = new List<Monster>();
@@ -72,6 +78,28 @@ public class Game_Mng : NetworkBehaviour
             NotifyGetMoneyClientRpc(value);
         }
     }
+    public void OnGameOverEvent()
+    {
+        Time.timeScale = 0.0f;
+
+        if(IsServer)
+        {
+            HostDPS = Damage;
+            SendDpsToClientRpc(Damage);
+        }
+        else
+        {
+            ClientDPS = Damage;
+            SendDpsToServerRpc(Damage);
+        }
+
+        OnGameOver?.Invoke();
+    }
+
+    public void DamageCount(double damage)
+    {
+        Damage += damage;
+    }
 
     public void AddHero(Hero hero)
     {
@@ -90,7 +118,46 @@ public class Game_Mng : NetworkBehaviour
         else
             monsters.Add(monster);
         MonsterCount++;
+        if(MonsterCount >= MonsterLimitCount)
+        {
+            OnGameOverClientRpc();
+        }
         UpdateMonsterCountOnClients();
+    }
+
+    [ClientRpc]
+    public void OnGameOverClientRpc()
+    {
+        OnGameOverEvent();
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    private void SendDpsToServerRpc(double clientDps)
+    {
+        ClientDPS = clientDps;
+    }
+
+    [ClientRpc]
+    private void SendDpsToClientRpc(double hostDps)
+    {
+        if(!IsServer)
+        {
+            HostDPS = hostDps;
+        }
+    }
+
+    public void CleanupNetworkObjects()
+    {
+        if(IsHost)
+        {
+            foreach (var obj in FindObjectsByType<NetworkObject>(FindObjectsSortMode.None))
+            {
+                if (obj != null && obj.IsSpawned)
+                {
+                    obj.Despawn(true);
+                }
+            }
+        }
     }
     public void RemoveMonster(Monster monster, bool Boss =false)
     {

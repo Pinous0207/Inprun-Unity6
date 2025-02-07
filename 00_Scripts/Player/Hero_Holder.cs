@@ -44,7 +44,7 @@ public class Hero_Holder : NetworkBehaviour
     }
 
     #region SELL
-    private void Sell(bool GetNavigation = true)
+    public void Sell(bool GetNavigation = true)
     {
         if (GetNavigation)
         {
