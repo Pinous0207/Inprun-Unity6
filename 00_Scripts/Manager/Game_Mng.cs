@@ -78,6 +78,35 @@ public class Game_Mng : NetworkBehaviour
             NotifyGetMoneyClientRpc(value);
         }
     }
+
+    public void SetNickNameOtherPlayer()
+    {
+        if (IsServer)
+        {
+            string name = Cloud_Mng.instance.m_Data.playerName;
+            SendNickNameToClientRpc(name);
+        }
+        else
+        {
+            string name = Cloud_Mng.instance.m_Data.playerName;
+            SendNickNameToServerRpc(name);
+        }
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    private void SendNickNameToServerRpc(string name)
+    {
+        Cloud_Mng.instance.Other_Data.playerName = name;
+    }
+
+    [ClientRpc]
+    private void SendNickNameToClientRpc(string name)
+    {
+        if (!IsServer)
+        {
+            Cloud_Mng.instance.Other_Data.playerName = name;
+        }
+    }
     public void OnGameOverEvent()
     {
         Time.timeScale = 0.0f;

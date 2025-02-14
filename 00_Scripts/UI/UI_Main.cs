@@ -23,6 +23,8 @@ public class UI_Main : MonoBehaviour
     [SerializeField] private TextMeshProUGUI Wave_T;
     [SerializeField] private TextMeshProUGUI HeroCount_T;
     [SerializeField] private TextMeshProUGUI Navigation_T;
+    [SerializeField] private TextMeshProUGUI NickName_T;
+    [SerializeField] private TextMeshProUGUI OtherPlayerNickName_T;
 
     [SerializeField] private Transform Navigation_Content;
 
@@ -55,6 +57,8 @@ public class UI_Main : MonoBehaviour
 
     [Header("##GameOver##")]
     [SerializeField] private GameObject GameOverUI;
+    [SerializeField] private TextMeshProUGUI PlayerNick_T;
+    [SerializeField] private TextMeshProUGUI OtherPlayerNick_T;
     [SerializeField] private TextMeshProUGUI HostDPs;
     [SerializeField] private TextMeshProUGUI ClientDps;
     [SerializeField] private TextMeshProUGUI GameOverWave;
@@ -66,6 +70,15 @@ public class UI_Main : MonoBehaviour
         Game_Mng.instance.OnGameOver += Gameover;
 
         SummonButton.onClick.AddListener(() => ClickSummon());
+
+        Game_Mng.instance.SetNickNameOtherPlayer();
+        Invoke("SetNickNameUI", 0.5f);
+    }
+
+    private void SetNickNameUI()
+    {
+        NickName_T.text = Cloud_Mng.instance.m_Data.playerName;
+        OtherPlayerNickName_T.text = Cloud_Mng.instance.Other_Data.playerName;
     }
 
     private void Gameover()
@@ -80,6 +93,8 @@ public class UI_Main : MonoBehaviour
     {
         yield return new WaitForSecondsRealtime(0.2f);
         HostDPs.text = string.Format("{0:0.0}", Game_Mng.instance.HostDPS);
+        PlayerNick_T.text = Cloud_Mng.instance.m_Data.playerName;
+        OtherPlayerNick_T.text = Cloud_Mng.instance.Other_Data.playerName;
         ClientDps.text = string.Format("{0:0.0}", Game_Mng.instance.ClientDPS);
         yield return new WaitForSecondsRealtime(3.0f);
         Game_Mng.instance.CleanupNetworkObjects();
