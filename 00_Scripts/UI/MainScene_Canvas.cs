@@ -4,6 +4,9 @@ using UnityEngine;
 public class MainScene_Canvas : MonoBehaviour
 {
     public static MainScene_Canvas instance = null;
+    public static MainScene_Battle Battle;
+    public static Bottom_UIs Bottom;
+
 
     private void Awake()
     {
@@ -11,12 +14,15 @@ public class MainScene_Canvas : MonoBehaviour
         {
             instance = this;
         }
-    }
 
-    [SerializeField] private TextMeshProUGUI Level_T;
+        Battle = GetComponentInChildren<MainScene_Battle>(true);
+        Bottom = GetComponentInChildren<Bottom_UIs>();
+    }
 
     public void Initalize()
     {
-        Level_T.text = "Lv." + Cloud_Mng.instance.m_Data.level.ToString();
+        Battle.Initalize();
+        Bottom.GetPanel(2);
     }
+
 }

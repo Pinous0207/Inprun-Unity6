@@ -302,7 +302,7 @@ public class Spawner : NetworkBehaviour
 
     IEnumerator Spawn_Monster_Coroutine(bool GetBoss)
     {
-        yield return new WaitForSeconds(0.1f);
+        yield return new WaitForSeconds(1.0f);
 
         Net_Utils.HostAndClientMethod(
             () => ServerMonsterSpawnServerRpc(Net_Utils.LocalID(), GetBoss),

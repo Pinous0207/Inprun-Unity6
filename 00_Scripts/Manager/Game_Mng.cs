@@ -64,6 +64,11 @@ public class Game_Mng : NetworkBehaviour
                     return;
                 }
                 Wave++;
+                if(Cloud_Mng.instance.m_Data.Wave <= Wave)
+                {
+                    Cloud_Mng.instance.m_Data.Wave = Wave;
+                    Cloud_Mng.instance.Save();
+                }
                 GetWaveUp = true;
                 Timer = 60.0f;
             }

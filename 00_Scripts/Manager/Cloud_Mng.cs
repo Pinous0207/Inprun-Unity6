@@ -14,11 +14,13 @@ public class Data
 {
     public string playerName;
     public int level;
+    public int Wave;
 
-    public Data(string playerName, int level)
+    public Data(string playerName, int level, int wave)
     {
         this.playerName = playerName;
         this.level = level;
+        this.Wave = wave;
     }
 }
 
@@ -98,7 +100,7 @@ public class Cloud_Mng : MonoBehaviour
             else
             {
                 Debug.LogWarning("저장된 플레이어 데이터가 없습니다.");
-                return new Data("", 1);
+                return new Data("", 1, 0);
             }
         }
         catch(System.Exception e)

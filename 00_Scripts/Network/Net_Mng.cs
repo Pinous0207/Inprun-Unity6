@@ -36,6 +36,10 @@ public partial class Net_Mng : MonoBehaviour
 
             MainScene_Canvas.instance.Initalize();
         }
+        else
+        {
+            MainScene_Canvas.instance.Initalize();
+        }
 
         StartMatchButton.onClick.AddListener(() => StartMatchmaking());
         //JoinMatchButton.onClick.AddListener(() => JoinGameWithCode(fieldText.text));
